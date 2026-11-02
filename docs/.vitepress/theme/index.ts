@@ -1,6 +1,7 @@
 import DefaultTheme from "vitepress/theme";
 import type { Theme } from "vitepress";
 import { h } from "vue";
+import SponsorCard from "./SponsorCard.vue";
 import ThemeImage from "./ThemeImage.vue";
 import VersionBanner from "./VersionBanner.vue";
 import "./custom.css";
@@ -11,5 +12,6 @@ export default {
   Layout: () => h(DefaultTheme.Layout, null, { "doc-before": () => h(VersionBanner) }),
   enhanceApp({ app }) {
     app.component("ThemeImage", ThemeImage);
+    app.component("SponsorCard", SponsorCard);
   },
 } satisfies Theme;

@@ -78,3 +78,13 @@ features:
 操作方法や保存形式は、予告なく変わることがあります。大切なモデルは、こまめに手元のファイルとして保存してください。
 不具合のご報告やご要望は、[GitHub Issues](https://github.com/modelith/modelith/issues/new/choose) にお寄せください。
 :::
+
+<div class="home-sponsor">
+
+## Modelith を支援する
+
+Modelith は、オープンソースで開発しています。開発を続けるための支援を、GitHub Sponsors で受け付けています（[くわしく](/sponsor)）。
+
+<SponsorCard />
+
+</div>
