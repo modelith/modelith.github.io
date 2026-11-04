@@ -51,7 +51,7 @@ node scripts/copy-version.mjs next .    # プレビュー版を安定版に上�
 
 ## 手元で動かす
 
-Node.js 22 が必要です。
+Node.js 26 が必要です。
 
 ```bash
 npm ci
