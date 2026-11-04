@@ -14,6 +14,7 @@
 //   MODELITH_WEB  Playwright を借りる modelith の web フォルダ（既定 ../modelith/web）
 //   ONLY          撮る画像の名前を正規表現で絞り込む（例 ONLY=diagram-）
 //   PARTS         撮る場面をカンマ区切りで絞り込む（desktop,dark,coffee,tutorial,text,phone）
+//   CHROMIUM_PATH 使う Chromium の実行ファイル（Playwright が入れたブラウザの版が合わないとき。例 /opt/pw-browsers/chromium）
 //   CHANNEL       マニュアルの版。stable（既定）は docs/public/images/、next（プレビュー版）は docs/public/images/next/ に置く
 //
 // モデルは docs/public/examples/ の自作の例だけを使う（アプリのサンプルや非公開の資料は使わない）。
@@ -624,7 +625,7 @@ async function phoneShots(browser) {
 }
 
 mkdirSync(OUT, { recursive: true });
-const browser = await chromium.launch();
+const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 try {
   if (want("desktop")) await desktopShots(browser, "light");
   if (want("dark")) await desktopShots(browser, "dark");
