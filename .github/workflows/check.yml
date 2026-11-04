@@ -18,8 +18,8 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
-          check-latest: true  # 毎回その時点の最新の 22.x を使う（セキュリティリリースをすぐ取り込む）
+          node-version: 26
+          check-latest: true  # 毎回その時点の最新の 26.x を使う（セキュリティリリースをすぐ取り込む）
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run docs:build
@@ -31,8 +31,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
-          check-latest: true  # 毎回その時点の最新の 22.x を使う（セキュリティリリースをすぐ取り込む）
+          node-version: 26
+          check-latest: true  # 毎回その時点の最新の 26.x を使う（セキュリティリリースをすぐ取り込む）
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm audit signatures
