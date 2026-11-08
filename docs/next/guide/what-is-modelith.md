@@ -52,8 +52,8 @@ WebAssembly を使えない古いブラウザでは起動できません。「Mo
 
 ## 開発状況
 
-このページは、開発中の **0.2.0 のプレビュー版** のマニュアルです。最新のプレリリース **0.2.0-beta.2** に合わせて書いています。操作方法や保存形式は、予告なく変わることがあります。
-安定版（いまは 0.1.0 の正式版の候補 0.1.0-rc.1）の使い方は、[安定版のマニュアル](/guide/what-is-modelith) をご覧ください。
+このページは、開発中の **0.2.0 のプレビュー版** のマニュアルです。最新のプレリリース **0.2.0-beta.3** に合わせて書いています。操作方法や保存形式は、予告なく変わることがあります。
+安定版（いまは 0.1.0 の正式版の候補 0.1.0-rc.2）の使い方は、[安定版のマニュアル](/guide/what-is-modelith) をご覧ください。
 
 - プレビュー版は [https://modelith.github.io/modelith/preview/](https://modelith.github.io/modelith/preview/) で使えます。→ [プレビュー版](#プレビュー版)
 - 画面左上のメニューバーの「ヘルプ」で、動いているバージョン・ソースコード・ライセンス・このバージョンのテスト結果を確かめられます。
@@ -65,9 +65,14 @@ Modelith はオープンソースです。ソースコードは [GitHub](https:/
 ### プレビュー版
 
 次のバージョンに向けて開発中の機能を入れた版（alpha・beta）を、プレビュー版として [https://modelith.github.io/modelith/preview/](https://modelith.github.io/modelith/preview/) に出しています。
-[https://modelith.github.io/modelith/](https://modelith.github.io/modelith/)（安定版）は、正式版（まだ無いので、今は 0.1.0-rc.1）のままです。
+[https://modelith.github.io/modelith/](https://modelith.github.io/modelith/)（安定版）は、正式版（まだ無いので、今は 0.1.0-rc.2）のままです。
 
 - プレビュー版は、新しいプレリリースを出すたびに替わります。動いているバージョンは「ヘルプ」で、各バージョンで増えた機能は [リリースノート](/releases/) で確かめられます。
 - マニュアルも、安定版とプレビュー版で分かれています。上のメニューの「マニュアルの版」で切り替えられます。
 - 前回の続き・下書き・設定・プラグインの許可は、安定版とは別に保存されます。そのため、プレビュー版を初めて開くと空から始まります。手元のファイルは、どちらでも同じものを開けます。
 - 開発中の版のため、安定版より不具合が多いことがあります。気づいたことは [GitHub Issues](https://github.com/modelith/modelith/issues/new/choose) にお寄せください。
+
+### リリース候補版
+
+正式版の候補（rc）は、[https://modelith.github.io/modelith/rc/](https://modelith.github.io/modelith/rc/) で試せます。プレビュー版とも安定版とも別に保存されるので、前回の続き・下書き・設定・プラグインの許可は引き継がれません。
+試していただく候補が無いときは、安定版への案内だけが出ます。
