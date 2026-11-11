@@ -1,12 +1,120 @@
 <script setup lang="ts">
-// トップページで、スクロールに合わせて動く Modelith の画面の模型（ツリー・図・テキスト）。
-// step で場面を選ぶ：0 はじめ、1 図で「満たす」を引く、2 テキストで部品を書く、3 抜けを知らせて直す、4 内部ブロック図に切り替える。
-// 動きは CSS の transition と animation だけで付け、step が変わったときに始まる。視差効果を減らす設定では、終わった状態だけを見せる。
-defineProps<{ step: number }>();
+// トップページの、Modelith の画面の模型（ツリー・図・テキスト）。
+// p はスクロールで進む位置（0〜4。1 進むごとに 1 つの場面）。動きは時間ではなく p で決まるので、
+// スクロールを戻せば動きも戻る（VS Code のサイトと同じ作り）。p に整数を渡すと、その場面の終わった姿になる。
+//   0→1 図で「満たす」の線を引く／1→2 テキストに部品を打つ／2→3 抜けを知らせて直す／3→4 内部ブロック図に切り替える
+import { computed } from "vue";
+
+const props = defineProps<{ p: number }>();
+
+/**
+ * p が a から b へ進む間を、0 から 1 に直す（範囲の外は 0 か 1）。
+ *
+ * @param a 始まりの位置
+ * @param b 終わりの位置
+ * @returns 0〜1
+ * @example
+ * seg(0.5, 1) // p が 0.75 なら 0.5
+ */
+const seg = (a: number, b: number): number => Math.min(1, Math.max(0, (props.p - a) / (b - a)));
+/**
+ * a〜b で現れ、c〜d で消える値（0〜1）。
+ *
+ * @param a 現れ始める位置
+ * @param b 現れ終わる位置
+ * @param c 消え始める位置
+ * @param d 消え終わる位置
+ * @returns 0〜1
+ * @example
+ * bell(0, 0.1, 0.8, 0.9) // p が 0.5 なら 1
+ */
+const bell = (a: number, b: number, c: number, d: number): number => seg(a, b) * (1 - seg(c, d));
+/**
+ * a〜b の間に、文字を 1 つずつ打っていく。
+ *
+ * @param text 打つ文字列
+ * @param a 打ち始める位置
+ * @param b 打ち終わる位置
+ * @returns いま見えている部分
+ * @example
+ * typed("abcd", 1, 2) // p が 1.5 なら "ab"
+ */
+const typed = (text: string, a: number, b: number): string => text.slice(0, Math.round(seg(a, b) * text.length));
+/**
+ * 下から伸びる線のスタイル。
+ *
+ * @param v 0〜1（1 で引き終わり）
+ * @returns style
+ * @example
+ * grow(0.5) // → { transform: "scaleY(0.5)", opacity: 1 }
+ */
+const grow = (v: number) => ({ transform: `scaleY(${v})`, opacity: v > 0 ? 1 : 0 });
+/**
+ * 下から浮かび上がる要素のスタイル。
+ *
+ * @param v 0〜1（1 で出終わり）
+ * @returns style
+ * @example
+ * rise(1) // → { opacity: 1, transform: "translateY(0px)" }
+ */
+const rise = (v: number) => ({ opacity: v, transform: `translateY(${(1 - v) * 8}px)` });
+/**
+ * 新しく書き足された行を黄色く光らせるスタイル。
+ *
+ * @param v 0〜1（光の強さ）
+ * @returns style
+ * @example
+ * flash(0) // → { background: "rgba(255, 214, 0, 0)" }
+ */
+const flash = (v: number) => ({ background: `rgba(255, 214, 0, ${0.4 * v})` });
+
+const LINE_PART = "part battery : Battery;";
+const LINE_DEF = "part def Battery;";
+
+/** いまの p での、各部分の進み具合。 */
+const s = computed(() => {
+  const p = props.p;
+  return {
+    // 1：図で「満たす」を引く（ポインタが線をたどり、テキストに行が足される）
+    sat: seg(0.15, 0.55),
+    satLabel: seg(0.45, 0.6),
+    pointer: bell(0.08, 0.15, 0.55, 0.65),
+    pointerY: 170 - seg(0.15, 0.55) * 78,
+    satLine: p >= 0.55,
+    satFlash: bell(0.55, 0.6, 0.8, 1),
+    // 2：テキストに部品を打つと、図に箱と線が出る
+    typePart: typed(LINE_PART, 1.1, 1.4),
+    typeDef: typed(LINE_DEF, 1.45, 1.65),
+    partLine: p >= 1.08,
+    defLine: p >= 1.43,
+    caretPart: p >= 1.08 && p < 1.43,
+    caretDef: p >= 1.43 && p < 1.72,
+    battery: seg(1.72, 1.85),
+    comp: seg(1.78, 1.95),
+    // 3：抜けを知らせて、「関係を追加」で直す
+    longText: p >= 2.05,
+    longFlash: bell(2.05, 2.1, 2.25, 2.4),
+    longBox: seg(2.1, 2.22),
+    warn: bell(2.22, 2.3, 2.78, 2.86),
+    ring: p >= 2.22 && p < 2.82,
+    guide: bell(2.32, 2.42, 2.78, 2.88),
+    press: bell(2.56, 2.6, 2.62, 2.66),
+    fix: seg(2.64, 2.8),
+    fixLabel: seg(2.74, 2.84),
+    fixLine: p >= 2.68,
+    fixFlash: bell(2.68, 2.72, 2.9, 3.05),
+    // 4：内部ブロック図に切り替える
+    ibdTab: seg(3.08, 3.18),
+    ibdOn: p >= 3.25,
+    general: 1 - seg(3.22, 3.36),
+    ibd: seg(3.32, 3.48),
+    ibdPart: seg(3.42, 3.6),
+  };
+});
 </script>
 
 <template>
-  <div class="stage" :data-step="step" aria-hidden="true">
+  <div class="stage" aria-hidden="true">
     <div class="titlebar"><i></i><i></i><i></i><span>bicycle-light.sysml</span></div>
     <div class="panes">
       <!-- モデルのツリー -->
@@ -15,19 +123,19 @@ defineProps<{ step: number }>();
         <ul>
           <li class="pkg">▾ BicycleLight</li>
           <li><b class="k r">R</b>BrightEnough</li>
-          <li class="s3"><b class="k r">R</b>LongRun<em class="gap">△</em></li>
+          <li v-if="s.longText" :style="rise(s.longBox)"><b class="k r">R</b>LongRun<em class="gap" :style="{ opacity: s.warn }">△</em></li>
           <li><b class="k p">P</b>Light</li>
-          <li class="s2"><b class="k p">P</b>Battery</li>
+          <li v-if="s.battery > 0" :style="rise(s.battery)"><b class="k p">P</b>Battery</li>
         </ul>
       </div>
 
       <!-- 図 -->
       <div class="canvas">
         <div class="tabs">
-          <span class="tab all">すべて</span>
-          <span class="tab ibd">内部ブロック図</span>
+          <span class="tab" :class="{ on: !s.ibdOn }">すべて</span>
+          <span class="tab" :class="{ on: s.ibdOn }" :style="{ opacity: s.ibdTab }">内部ブロック図</span>
         </div>
-        <svg class="diagram general" viewBox="20 6 480 316">
+        <svg class="diagram" viewBox="20 6 480 316" :style="{ opacity: s.general }">
           <defs>
             <marker id="st-open" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
               <path class="m-open" d="M1 1 L9 5 L1 9" />
@@ -45,15 +153,15 @@ defineProps<{ step: number }>();
             <line class="sep" x1="44" y1="62" x2="230" y2="62" />
             <text class="doc" x="54" y="80">夜道を 10 m 先まで照らす</text>
           </g>
-          <!-- 要求 LongRun（3 から） -->
-          <g class="box req s3" :class="{ ring: step === 3 }">
+          <!-- 要求 LongRun -->
+          <g class="box req" :class="{ ring: s.ring }" :style="rise(s.longBox)">
             <rect x="290" y="18" width="190" height="72" rx="3" />
             <rect class="bar" x="290" y="18" width="4" height="72" />
             <text class="st" x="385" y="36">«requirement def»</text>
             <text class="nm" x="385" y="54">LongRun</text>
             <line class="sep" x1="294" y1="62" x2="480" y2="62" />
             <text class="doc" x="304" y="80">3 時間つづけて点く</text>
-            <text class="warn" x="466" y="34">△</text>
+            <text class="warn" x="466" y="34" :style="{ opacity: s.warn }">△</text>
           </g>
           <!-- 部品 Light -->
           <g class="box part">
@@ -62,67 +170,73 @@ defineProps<{ step: number }>();
             <text class="st" x="135" y="190">«part def»</text>
             <text class="nm" x="135" y="208">Light</text>
           </g>
-          <!-- 部品 Battery（2 から） -->
-          <g class="box part s2">
+          <!-- 部品 Battery -->
+          <g class="box part" :style="rise(s.battery)">
             <rect x="290" y="258" width="190" height="50" rx="3" />
             <rect class="bar" x="290" y="258" width="4" height="50" />
             <text class="st" x="385" y="278">«part def»</text>
             <text class="nm" x="385" y="296">Battery</text>
           </g>
-          <!-- Light が BrightEnough を満たす（1 から） -->
-          <g class="edge sat s1">
-            <path d="M135 170 V92" marker-end="url(#st-open)" />
-            <text x="141" y="136">«satisfy»</text>
+          <!-- Light が BrightEnough を満たす -->
+          <g class="edge sat">
+            <path class="grow" d="M135 170 V92" marker-end="url(#st-open)" :style="grow(s.sat)" />
+            <text x="141" y="136" :style="{ opacity: s.satLabel }">«satisfy»</text>
           </g>
-          <!-- Light が battery を持つ（2 から） -->
-          <g class="edge comp s2">
+          <!-- Light が battery を持つ -->
+          <g class="edge comp" :style="{ opacity: s.comp }">
             <path d="M230 195 H385 V258" marker-start="url(#st-dia)" />
             <text x="300" y="188">battery</text>
           </g>
-          <!-- Battery が LongRun を満たす（3 の終わりに引く） -->
-          <g class="edge sat fix">
-            <path d="M385 258 V92" marker-end="url(#st-open)" />
-            <text x="391" y="176">«satisfy»</text>
+          <!-- Battery が LongRun を満たす（「関係を追加」で引く） -->
+          <g class="edge sat">
+            <path class="grow" d="M385 258 V92" marker-end="url(#st-open)" :style="grow(s.fix)" />
+            <text x="391" y="176" :style="{ opacity: s.fixLabel }">«satisfy»</text>
+          </g>
+          <!-- 線を引くポインタ -->
+          <g class="pointer" :style="{ opacity: s.pointer, transform: `translate(135px, ${s.pointerY}px)` }">
+            <circle r="5" />
+            <path d="M0 0 L0 14 L4 10 L7 16 L9 15 L6 9 L11 9 Z" />
           </g>
         </svg>
 
-        <!-- 内部ブロック図（4） -->
-        <svg class="diagram ibd" viewBox="20 6 480 316">
+        <!-- 内部ブロック図 -->
+        <svg class="diagram" viewBox="20 6 480 316" :style="{ opacity: s.ibd }">
           <g class="frame">
             <rect x="40" y="24" width="440" height="282" rx="4" />
             <text class="st" x="58" y="46">«part def» Light</text>
           </g>
-          <g class="box part">
+          <g class="box part" :style="rise(s.ibdPart)">
             <rect x="150" y="130" width="220" height="56" rx="3" />
             <rect class="bar" x="150" y="130" width="4" height="56" />
             <text class="nm" x="260" y="163">battery : Battery</text>
           </g>
         </svg>
 
-        <!-- トレースの抜けの案内（3） -->
-        <div class="guide">
+        <!-- トレースの抜けの案内 -->
+        <div class="guide" :style="rise(s.guide)">
           <p class="g-h"><span>△</span> トレースの抜け <small>1 / 1 件目</small></p>
           <p>この要求を満たす部品がありません</p>
-          <span class="g-btn">関係を追加</span>
+          <span class="g-btn" :style="{ transform: `scale(${1 - 0.08 * s.press})` }">関係を追加</span>
         </div>
       </div>
 
       <!-- テキスト -->
       <div class="text">
         <p class="pane-h">bicycle-light.sysml</p>
-        <pre><code><span class="ln">package <i class="t">BicycleLight</i> {</span>
+        <pre><code>
+<span class="ln">package BicycleLight {</span>
 <span class="ln">    <i class="kw">requirement def</i> BrightEnough {</span>
 <span class="ln">        <i class="kw">doc</i> <i class="c">/* 夜道を 10 m 先まで照らす */</i></span>
 <span class="ln">    }</span>
-<span class="ln s3 hl3">    <i class="kw">requirement def</i> LongRun {</span>
-<span class="ln s3 hl3">        <i class="kw">doc</i> <i class="c">/* 3 時間つづけて点く */</i></span>
-<span class="ln s3 hl3">    }</span>
+<template v-if="s.longText"><span class="ln" :style="flash(s.longFlash)">    <i class="kw">requirement def</i> LongRun {</span>
+<span class="ln" :style="flash(s.longFlash)">        <i class="kw">doc</i> <i class="c">/* 3 時間つづけて点く */</i></span>
+<span class="ln" :style="flash(s.longFlash)">    }</span></template>
 <span class="ln">    <i class="kw">part def</i> Light {</span>
-<span class="ln s2 type" style="--n: 30">        <i class="kw">part</i> battery : Battery;</span>
+<span v-if="s.partLine" class="ln">        {{ s.typePart }}<b v-if="s.caretPart" class="caret"></b></span>
 <span class="ln">    }</span>
-<span class="ln s2 type d2" style="--n: 22">    <i class="kw">part def</i> Battery;</span>
-<span class="ln s1 hl1">    <i class="kw">satisfy</i> BrightEnough <i class="kw">by</i> Light;</span>
-<span class="ln fix hlf">    <i class="kw">satisfy</i> LongRun <i class="kw">by</i> Battery;</span>
+<span v-if="s.defLine" class="ln">    {{ s.typeDef }}<b v-if="s.caretDef" class="caret"></b></span>
+<span v-if="s.satLine" class="ln" :style="flash(s.satFlash)">    <i class="kw">satisfy</i> BrightEnough <i class="kw">by</i> Light;</span>
+<span v-if="s.fixLine" class="ln" :style="flash(s.fixFlash)">    <i class="kw">satisfy</i> LongRun <i class="kw">by</i> Battery;</span>
 <span class="ln">}</span></code></pre>
       </div>
     </div>
@@ -143,9 +257,9 @@ defineProps<{ step: number }>();
   --st-part: #e6eef7;
   --st-part-bar: #2b5b8a;
   --st-edge: #4a5a6e;
-  --st-hl: rgba(255, 214, 0, 0.45);
   --st-sel: #2f7bf5;
   --st-warn: #b5651d;
+  --st-kw: #2f6db5;
   position: relative;
   border: 1px solid var(--vp-c-divider);
   border-radius: 12px;
@@ -168,8 +282,8 @@ defineProps<{ step: number }>();
   --st-part: #1f2c3b;
   --st-part-bar: #5b8fc4;
   --st-edge: #9fb0c3;
-  --st-hl: rgba(255, 214, 0, 0.22);
   --st-warn: #e0a15a;
+  --st-kw: #7fb0ee;
 }
 
 .titlebar {
@@ -273,24 +387,16 @@ defineProps<{ step: number }>();
   border-radius: 4px;
   color: var(--st-fg2);
   font-size: 11px;
-  transition: opacity 0.4s, color 0.3s, border-color 0.3s;
 }
-.tab.all {
+.tab.on {
   color: var(--st-fg);
   border-color: var(--st-fg2);
-}
-.tab.ibd {
-  opacity: 0;
 }
 .diagram {
   position: absolute;
   inset: 36px 0 0;
   width: 100%;
   height: calc(100% - 36px);
-  transition: opacity 0.5s;
-}
-.diagram.ibd {
-  opacity: 0;
 }
 .diagram text {
   fill: var(--st-fg);
@@ -341,8 +447,22 @@ defineProps<{ step: number }>();
   stroke: var(--st-sel);
   stroke-width: 2.4;
 }
-.edge {
-  color: var(--st-edge);
+.edge path {
+  fill: none;
+  stroke: var(--st-edge);
+  stroke-width: 1.3;
+}
+.edge.sat path {
+  stroke-dasharray: 5 4;
+}
+.edge .grow {
+  transform-box: fill-box;
+  transform-origin: bottom;
+}
+.edge text {
+  font-size: 10px;
+  fill: var(--st-fg2);
+  text-anchor: start;
 }
 .m-open {
   fill: none;
@@ -352,19 +472,6 @@ defineProps<{ step: number }>();
 .m-dia {
   fill: var(--st-edge);
 }
-.edge path {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.3;
-}
-.edge.sat path {
-  stroke-dasharray: 5 4;
-}
-.edge text {
-  font-size: 10px;
-  fill: var(--st-fg2);
-  text-anchor: start;
-}
 .frame rect {
   fill: none;
   stroke: var(--st-part-bar);
@@ -372,6 +479,15 @@ defineProps<{ step: number }>();
 }
 .frame text {
   text-anchor: start;
+}
+.pointer circle {
+  fill: var(--st-sel);
+  fill-opacity: 0.25;
+}
+.pointer path {
+  fill: var(--st-fg);
+  stroke: var(--st-bg);
+  stroke-width: 1;
 }
 
 /* 案内 */
@@ -385,8 +501,6 @@ defineProps<{ step: number }>();
   border-radius: 8px;
   background: var(--st-bg);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  opacity: 0;
-  transform: translateY(12px);
   pointer-events: none;
 }
 .guide p {
@@ -444,222 +558,38 @@ defineProps<{ step: number }>();
   font-style: normal;
 }
 .kw {
-  color: #2f6db5;
-}
-.dark .kw {
-  color: #7fb0ee;
-}
-.t {
-  color: inherit;
+  color: var(--st-kw);
 }
 .c {
   color: #7a8796;
 }
-
-/* ---- 場面ごとの出し方 ---- */
-.s1,
-.s2,
-.s3,
-.fix {
-  opacity: 0;
-  transition: opacity 0.5s, transform 0.5s;
+.caret {
+  display: inline-block;
+  width: 1px;
+  height: 1.1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--st-fg);
+  animation: st-blink 1s steps(1) infinite;
 }
-.ln.s1,
-.ln.s2,
-.ln.s3,
-.ln.fix {
-  display: none;
-}
-
-/* 1：「満たす」を引く。線が下から伸び、テキストに行が足される */
-.stage[data-step="1"] .s1,
-.stage[data-step="2"] .s1,
-.stage[data-step="3"] .s1,
-.stage[data-step="4"] .s1 {
-  opacity: 1;
-}
-.stage[data-step="1"] .ln.s1,
-.stage[data-step="2"] .ln.s1,
-.stage[data-step="3"] .ln.s1,
-.stage[data-step="4"] .ln.s1 {
-  display: block;
-}
-.stage[data-step="1"] .edge.s1 path {
-  transform-box: fill-box;
-  transform-origin: bottom;
-  animation: st-draw 0.8s ease-out both;
-}
-.stage[data-step="1"] .hl1 {
-  animation: st-flash 2.4s ease-out 0.6s both;
-}
-
-/* 2：テキストで部品を書く。行が打たれ、図に箱と線が現れる */
-.stage[data-step="2"] .s2,
-.stage[data-step="3"] .s2,
-.stage[data-step="4"] .s2 {
-  opacity: 1;
-}
-.stage[data-step="2"] .ln.s2,
-.stage[data-step="3"] .ln.s2,
-.stage[data-step="4"] .ln.s2 {
-  display: block;
-}
-.stage[data-step="2"] .type {
-  width: calc(var(--n) * 1ch + 20px);
-  overflow: hidden;
-  animation: st-type 1.1s steps(var(--n)) both;
-}
-.stage[data-step="2"] .type.d2 {
-  animation-delay: 1.2s;
-}
-.stage[data-step="2"] .box.s2,
-.stage[data-step="2"] .edge.s2,
-.stage[data-step="2"] li.s2 {
-  animation: st-pop 0.5s ease-out 2.4s both;
-}
-
-/* 3：抜けを知らせ、「関係を追加」で直す */
-.stage[data-step="3"] .s3,
-.stage[data-step="4"] .s3 {
-  opacity: 1;
-}
-.stage[data-step="3"] .ln.s3,
-.stage[data-step="4"] .ln.s3 {
-  display: block;
-}
-.stage[data-step="3"] .hl3 {
-  animation: st-flash 2s ease-out both;
-}
-.stage[data-step="3"] .guide {
-  animation: st-guide 4.4s ease-out 0.6s both;
-}
-.stage[data-step="3"] .g-btn {
-  animation: st-press 0.3s ease-in-out 2.6s both;
-}
-.stage[data-step="3"] .fix,
-.stage[data-step="4"] .fix {
-  opacity: 1;
-}
-.stage[data-step="3"] .ln.fix,
-.stage[data-step="4"] .ln.fix {
-  display: block;
-}
-.stage[data-step="3"] .edge.fix {
-  animation: st-pop 0.6s ease-out 3s both;
-}
-.stage[data-step="3"] .ln.fix {
-  animation: st-pop 0.4s ease-out 3s both, st-flash 2.4s ease-out 3.2s;
-}
-.stage[data-step="3"] .warn,
-.stage[data-step="3"] .gap {
-  animation: st-out 0.4s ease-in 3.4s both;
-}
-.stage[data-step="4"] .warn,
-.stage[data-step="4"] .gap {
-  opacity: 0;
-}
-.stage[data-step="3"] .box.ring rect:first-child {
-  animation: st-unring 0.4s ease-in 3.4s both;
-}
-
-/* 4：内部ブロック図に切り替える */
-.stage[data-step="4"] .tab.ibd {
-  opacity: 1;
-  color: var(--st-fg);
-  border-color: var(--st-fg2);
-}
-.stage[data-step="4"] .tab.all {
-  color: var(--st-fg2);
-  border-color: var(--st-line);
-}
-.stage[data-step="4"] .diagram.general {
-  opacity: 0;
-  transition-delay: 0.4s;
-}
-.stage[data-step="4"] .diagram.ibd {
-  opacity: 1;
-  transition-delay: 0.6s;
-}
-
-@keyframes st-draw {
-  from {
-    transform: scaleY(0);
-  }
-}
-@keyframes st-flash {
-  0%,
-  40% {
-    background: var(--st-hl);
-  }
-  100% {
-    background: transparent;
-  }
-}
-@keyframes st-type {
-  from {
-    width: 10px;
-  }
-}
-@keyframes st-pop {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes st-guide {
-  0% {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  12%,
-  70% {
-    opacity: 1;
-    transform: none;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-}
-@keyframes st-press {
+@keyframes st-blink {
   50% {
-    transform: scale(0.92);
-    opacity: 0.8;
-  }
-}
-@keyframes st-out {
-  to {
     opacity: 0;
-  }
-}
-@keyframes st-unring {
-  to {
-    stroke: var(--st-req-bar);
-    stroke-width: 1.2;
   }
 }
 
 @media (max-width: 640px) {
   .panes {
     grid-template-columns: 0 1fr 42%;
-    height: 300px;
+    height: 320px;
   }
   .tree {
     display: none;
   }
 }
-
-/* 視差効果を減らす設定では、動かさずに終わった状態を見せる */
 @media (prefers-reduced-motion: reduce) {
-  .stage *,
-  .stage *::before {
-    animation-duration: 0.01ms !important;
-    animation-delay: 0s !important;
-    transition: none !important;
+  .caret {
+    animation: none;
   }
 }
 </style>

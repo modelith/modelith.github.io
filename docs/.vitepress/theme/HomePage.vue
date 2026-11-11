@@ -51,23 +51,80 @@ const chapters = [
   },
 ];
 
-/** いま画面の中央にある章の場面（右の画面の模型に渡す）。 */
-const step = ref(0);
-/** 章の要素（スクロールの位置を見張る）。 */
-const chapterEls = ref<HTMLElement[]>([]);
+/** 場面の数（章の数）。 */
+const BEATS = chapters.length;
+/** スクロールで進む位置（0〜BEATS。画面の高さ 1 つ分スクロールすると 1 進む）。 */
+const p = ref(0);
+/** スクロールで動かすか（広い画面で、視差効果を減らす設定でないとき）。それ以外は、章と終わった場面を縦に並べる。 */
+const scrub = ref(false);
+/** 物語の外枠（ここを通り過ぎる間、中身を画面に貼り付けて p を進める）。 */
+const storyEl = ref<HTMLElement | null>(null);
 /** トップページの外枠（スクロールで現れる要素を探す）。 */
 const root = ref<HTMLElement | null>(null);
-let observers: IntersectionObserver[] = [];
+let cleanup: (() => void)[] = [];
+
+/**
+ * p が a から b へ進む間を、0 から 1 に直す（範囲の外は 0 か 1）。
+ *
+ * @param a 始まりの位置
+ * @param b 終わりの位置
+ * @returns 0〜1
+ * @example
+ * at(0, 1) // p が 0.25 なら 0.25
+ */
+const at = (a: number, b: number): number => Math.min(1, Math.max(0, (p.value - a) / (b - a)));
+
+/**
+ * 貼り付けた章の文の出し方。自分の場面の間だけ見せ、前後の場面では上下にずらして消す。
+ *
+ * @param k 章の番号（1 から）
+ * @returns style
+ * @example
+ * chapterStyle(1) // p が 0.5 なら { opacity: 1, transform: "translateY(0px)" }
+ */
+function chapterStyle(k: number) {
+  // 前の章が消えきってから、次の章を出す（2 つの文が重ならないように）
+  const fadeIn = k === 1 ? 1 : at(k - 1, k - 1 + 0.1);
+  const fadeOut = k === BEATS ? 0 : at(k - 0.12, k - 0.02);
+  return { opacity: fadeIn * (1 - fadeOut), transform: `translateY(${(1 - fadeIn) * 24 - fadeOut * 24}px)` };
+}
 
 onMounted(() => {
-  // 画面の中央の帯に入った章を、いまの場面にする
-  const chapterIo = new IntersectionObserver(
-    (entries) => {
-      for (const e of entries) if (e.isIntersecting) step.value = Number((e.target as HTMLElement).dataset.step);
-    },
-    { rootMargin: "-45% 0px -45% 0px" },
-  );
-  chapterEls.value.forEach((el) => chapterIo.observe(el));
+  // 広い画面で、視差効果を減らす設定でなければ、スクロールで動かす
+  const wide = matchMedia("(min-width: 960px)");
+  const calm = matchMedia("(prefers-reduced-motion: reduce)");
+  const decide = (): void => {
+    scrub.value = wide.matches && !calm.matches;
+  };
+  decide();
+  wide.addEventListener("change", decide);
+  calm.addEventListener("change", decide);
+
+  // スクロールの位置から p の行き先を求め、なめらかに追いかける（画面の書き換えごとに近づける）
+  let target = 0;
+  let frame = 0;
+  let last = 0;
+  const measure = (): void => {
+    const el = storyEl.value;
+    if (!el) return;
+    target = Math.min(BEATS + 0.3, Math.max(0, (scrollY - (el.getBoundingClientRect().top + scrollY)) / innerHeight));
+    if (!frame) frame = requestAnimationFrame(tick);
+  };
+  const tick = (now: number): void => {
+    const dt = last ? Math.min(0.05, (now - last) / 1000) : 1 / 60;
+    last = now;
+    p.value += (target - p.value) * (1 - Math.exp(-dt * 10));
+    if (Math.abs(target - p.value) < 0.001) {
+      p.value = target;
+      frame = 0;
+      last = 0;
+      return;
+    }
+    frame = requestAnimationFrame(tick);
+  };
+  addEventListener("scroll", measure, { passive: true });
+  addEventListener("resize", measure);
+  measure();
 
   // まだ画面の下にある要素だけを隠し、画面に入ったら出す（はじめから見えている要素と、JavaScript が無いときは隠さない）
   const els = [...(root.value?.querySelectorAll<HTMLElement>(".reveal") ?? [])];
@@ -86,10 +143,18 @@ onMounted(() => {
     el.classList.add("pre");
     revealIo.observe(el);
   }
-  observers = [chapterIo, revealIo];
+
+  cleanup = [
+    () => removeEventListener("scroll", measure),
+    () => removeEventListener("resize", measure),
+    () => wide.removeEventListener("change", decide),
+    () => calm.removeEventListener("change", decide),
+    () => cancelAnimationFrame(frame),
+    () => revealIo.disconnect(),
+  ];
 });
 
-onBeforeUnmount(() => observers.forEach((o) => o.disconnect()));
+onBeforeUnmount(() => cleanup.forEach((f) => f()));
 
 /** 図の種類の一覧。 */
 const diagrams = [
@@ -162,19 +227,37 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
       <ThemeImage light="/images/overview.jpg" dark="/images/overview-dark.jpg" alt="Modelith の画面。左にモデルのツリー、中央にロボット掃除機のブロック定義図、右に SysML v2 のテキスト" />
     </div>
 
-    <section class="story">
-      <div class="chapters">
-        <div v-for="c in chapters" :key="c.step" ref="chapterEls" class="chapter" :class="{ on: step === c.step }" :data-step="c.step">
-          <p class="kicker">{{ c.kicker }}</p>
-          <h2>{{ c.title }}</h2>
-          <p>{{ c.text }}</p>
-          <a class="more" :href="href(c.link)">{{ c.linkText }} <span aria-hidden="true">→</span></a>
-          <!-- 狭い画面では、章ごとに終わった場面を並べる -->
-          <StoryStage class="inline-stage" :step="c.step" />
+    <section ref="storyEl" class="story" :class="{ scrub }" :style="{ '--beats': BEATS }">
+      <!-- 広い画面：画面に貼り付け、スクロールで場面を進める -->
+      <div v-if="scrub" class="pin">
+        <div class="pin-copy">
+          <ol class="dots" aria-hidden="true">
+            <li v-for="c in chapters" :key="c.step" :class="{ on: p >= c.step - 1 - 0.05 && (p < c.step - 0.05 || c.step === BEATS) }"></li>
+          </ol>
+          <div class="pin-chapters">
+            <div v-for="c in chapters" :key="c.step" class="pin-chapter" :style="chapterStyle(c.step)">
+              <p class="kicker">{{ c.kicker }}</p>
+              <h2>{{ c.title }}</h2>
+              <p>{{ c.text }}</p>
+              <a class="more" :href="href(c.link)">{{ c.linkText }} <span aria-hidden="true">→</span></a>
+            </div>
+          </div>
+        </div>
+        <div class="pin-stage">
+          <StoryStage :p="p" />
         </div>
       </div>
-      <div class="sticky">
-        <StoryStage :step="step" />
+      <!-- 狭い画面・視差効果を減らす設定・JavaScript が無いとき：章と終わった場面を縦に並べる -->
+      <div v-else class="list">
+        <div v-for="c in chapters" :key="c.step" class="list-chapter">
+          <div>
+            <p class="kicker">{{ c.kicker }}</p>
+            <h2>{{ c.title }}</h2>
+            <p>{{ c.text }}</p>
+            <a class="more" :href="href(c.link)">{{ c.linkText }} <span aria-hidden="true">→</span></a>
+          </div>
+          <StoryStage :p="c.step" />
+        </div>
       </div>
     </section>
 
@@ -372,39 +455,69 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
   background: var(--vp-c-divider);
 }
 
-/* 主な特長：左の章をスクロールで進めると、右に貼り付いた画面の模型が章の場面に変わる */
+/* 主な特長：物語の外枠を通り過ぎる間、中身を画面に貼り付け、スクロールの量で場面を進める（VS Code のサイトと同じ作り） */
 .story {
+  padding-top: 64px;
+}
+.story.scrub {
+  /* 場面ごとに画面の高さ 1 つ分スクロールし、最後の場面を少しとどめる */
+  height: calc((var(--beats) + 0.5) * 100vh);
+}
+.pin {
+  position: sticky;
+  top: var(--vp-nav-height);
+  height: calc(100vh - var(--vp-nav-height));
   display: grid;
   grid-template-columns: 4fr 8fr;
   gap: 56px;
-  padding-top: 80px;
+  align-items: center;
 }
-.chapter {
-  min-height: 72vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  opacity: 0.35;
-  transition: opacity 0.4s;
+.pin-copy {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 24px;
+  align-items: center;
 }
-.chapter.on {
-  opacity: 1;
+.dots {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.chapter:first-child {
-  min-height: 60vh;
+.dots li {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--vp-c-divider);
+  transition: background-color 0.3s, transform 0.3s;
 }
-.chapter > p:not(.kicker) {
+.dots li.on {
+  background: var(--vp-c-brand-1);
+  transform: scale(1.4);
+}
+.pin-chapters {
+  display: grid;
+}
+.pin-chapter {
+  grid-area: 1 / 1;
+  will-change: opacity, transform;
+}
+.pin-chapter > p:not(.kicker),
+.list-chapter p:not(.kicker) {
   margin: 16px 0 0;
   line-height: 1.9;
   color: var(--vp-c-text-2);
 }
-.sticky {
-  position: sticky;
-  top: calc(var(--vp-nav-height) + max(24px, (100vh - var(--vp-nav-height) - 480px) / 2));
-  align-self: start;
+.list {
+  display: grid;
+  gap: 96px;
 }
-.inline-stage {
-  display: none;
+.list-chapter {
+  display: grid;
+  grid-template-columns: 4fr 8fr;
+  gap: 56px;
+  align-items: center;
 }
 
 /* スクロールで現れる（まだ画面の下にある要素だけに pre が付く） */
@@ -599,24 +712,9 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
 }
 
 @media (max-width: 960px) {
-  .story {
+  .list-chapter {
     grid-template-columns: 1fr;
-  }
-  .sticky {
-    display: none;
-  }
-  .chapters {
-    display: grid;
-    gap: 72px;
-  }
-  .chapter,
-  .chapter:first-child {
-    min-height: 0;
-    opacity: 1;
-  }
-  .inline-stage {
-    display: block;
-    margin-top: 24px;
+    gap: 24px;
   }
   .grid {
     grid-template-columns: repeat(2, 1fr);
@@ -630,9 +728,6 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
   .reveal.pre {
     opacity: 1;
     transform: none;
-  }
-  .chapter {
-    transition: none;
   }
 }
 
@@ -653,8 +748,8 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
   .lead {
     font-size: 16px;
   }
-  .story {
-    padding-top: 64px;
+  .list {
+    gap: 72px;
   }
   .diagrams,
   .extras {
