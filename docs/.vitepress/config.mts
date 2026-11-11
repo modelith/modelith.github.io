@@ -1,8 +1,6 @@
 import { defineConfig } from "vitepress";
 import { sysmlGrammar } from "./sysml-grammar";
 
-const APP = "https://modelith.github.io/modelith/";
-const PREVIEW = "https://modelith.github.io/modelith/preview/";
 const REPO = "https://github.com/modelith/modelith";
 const SPONSORS = "https://github.com/sponsors/modelith";
 /** GitHub Sponsors のハートの印（VitePress の標準の印に無いため、SVG で持つ）。 */
@@ -116,28 +114,15 @@ export default defineConfig({
   ],
   themeConfig: {
     logo: "/logo.svg",
+    // サイドバーの版の切り替え（VersionSwitch）に出す版
+    manualVersions: { stable: STABLE, next: NEXT },
+    // ナビゲーションは、ドキュメント・リリースノート・ロードマップと「ブラウザで試す」だけにする。
+    // マニュアルの版の切り替えはサイドバーの一番上（VersionSwitch）、支援はハートの印とサイドバー・トップページにある
     nav: [
-      { text: "ガイド", link: "/guide/what-is-modelith", activeMatch: "^/(next/)?guide/" },
-      { text: "図", link: "/diagrams/", activeMatch: "^/(next/)?diagrams/" },
-      { text: "SysML v2", link: "/sysml/basics", activeMatch: "^/(next/)?sysml/" },
+      { text: "ドキュメント", link: "/guide/what-is-modelith", activeMatch: "^/(next/)?(guide|diagrams|sysml)/" },
       { text: "リリースノート", link: "/releases/", activeMatch: "^/releases/" },
       { text: "ロードマップ", link: "/roadmap" },
-      {
-        // マニュアルの版：安定版は /、プレビュー版は /next/（よくあるドキュメントサイトと同じく、パスで切り替える）
-        text: "マニュアルの版",
-        items: [
-          { text: `${STABLE}（安定版）`, link: "/guide/what-is-modelith", activeMatch: "^/(guide|diagrams|sysml)/" },
-          { text: `${NEXT}（プレビュー版）`, link: "/next/guide/what-is-modelith", activeMatch: "^/next/" },
-        ],
-      },
-      {
-        text: "ブラウザで試す",
-        items: [
-          { text: "安定版", link: APP },
-          { text: "プレビュー版（開発中の新しい機能）", link: PREVIEW },
-        ],
-      },
-      { text: "支援する", link: "/sponsor", activeMatch: "^/sponsor" },
+      { component: "NavCta" },
     ],
     sidebar: {
       "/next/": [...versionedSidebar("/next"), aboutSidebar],
