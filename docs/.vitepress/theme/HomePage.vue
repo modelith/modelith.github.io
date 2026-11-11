@@ -19,24 +19,24 @@ const REPO = "https://github.com/modelith/modelith";
 const chapters = [
   {
     step: 1,
-    kicker: "図だけで描く",
-    title: "線を引くだけで、モデルになる",
-    text: "パレットで要求や部品を置き、線を引くだけでモデルを作れます。図で足した関係は、そのままテキストに書き足されます。SysML v2 の書き方を知らなくても始められます。",
+    kicker: "図で描く",
+    title: "描けば、テキストに書かれる",
+    text: "白紙から、パレットで要求や部品を置き、線を引くだけでモデルを作れます。図で足したものは、そのまま SysML v2 のテキストに書き足されます。書き方を知らなくても始められます。",
     link: "/guide/getting-started",
     linkText: "はじめての図",
   },
   {
     step: 2,
     kicker: "テキストで書く",
-    title: "書けば、その場で描かれる",
-    text: "書き方を知っていれば、テキストを打つだけで図が描かれます。どの方法で作っても、同じモデル・同じファイルになります。モデルはただのテキストなので、Git で差分を追えます。",
+    title: "書けば、図に描かれる",
+    text: "書き方を知っていれば、テキストを打つだけで図が描かれます。図から作っても、テキストから作っても、同じモデル・同じファイルです。モデルはただのテキストなので、Git で差分を追えます。",
     link: "/guide/text-and-diagram",
     linkText: "テキストで書く・行き来する",
   },
   {
     step: 3,
     kicker: "要求の抜けに気づける",
-    title: "抜けを見つけて、その場で直す",
+    title: "抜けに気づいて、その場で直す",
     text: "要求から設計・検証までのつながりをたどり、導出・充足・検証の抜けを知らせます。何が足りないかと直し方を示し、図のまま関係を追加できます。",
     link: "/diagrams/traceability",
     linkText: "トレーサビリティ",
@@ -44,8 +44,8 @@ const chapters = [
   {
     step: 4,
     kicker: "目的に合わせた図",
-    title: "同じモデルを、見たい切り口で",
-    text: "ブロック定義図・内部ブロック図・シーケンス図・アクティビティ図・状態遷移図など、同じモデルを目的に合わせた図で表示できます。",
+    title: "同じモデルを、いくつもの図で",
+    text: "ブロック定義図・内部ブロック図・トレーサビリティなど、同じモデルを見たい切り口で表示できます。どの図にも、同じ部品と要求が出てきます。",
     link: "/diagrams/",
     linkText: "図の種類と開き方",
   },
@@ -84,8 +84,8 @@ const at = (a: number, b: number): number => Math.min(1, Math.max(0, (p.value - 
  */
 function chapterStyle(k: number) {
   // 前の章が消えきってから、次の章を出す（2 つの文が重ならないように）
-  const fadeIn = k === 1 ? 1 : at(k - 1, k - 1 + 0.1);
-  const fadeOut = k === BEATS ? 0 : at(k - 0.12, k - 0.02);
+  const fadeIn = k === 1 ? 1 : at(k - 1 - 0.01, k - 1 + 0.07);
+  const fadeOut = k === BEATS ? 0 : at(k - 0.09, k - 0.01);
   return { opacity: fadeIn * (1 - fadeOut), transform: `translateY(${(1 - fadeIn) * 24 - fadeOut * 24}px)` };
 }
 
@@ -263,8 +263,8 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
 
     <section class="diagrams">
       <div class="head">
-        <h2>目的に合わせた図</h2>
-        <p>同じモデルを、見たい切り口で表示できます。</p>
+        <h2>図の種類</h2>
+        <p>よく使う図を、同じモデルからいつでも開けます。</p>
       </div>
       <div class="grid">
         <a v-for="(d, i) in diagrams" :key="d.name" class="card reveal" :style="{ '--d': i % 3 }" :href="href(d.link)">
@@ -460,8 +460,8 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
   padding-top: 64px;
 }
 .story.scrub {
-  /* 場面ごとに画面の高さ 1 つ分スクロールし、最後の場面を少しとどめる */
-  height: calc((var(--beats) + 0.5) * 100vh);
+  /* 場面ごとに画面の高さ 1 つ分スクロールし、貼り付けた画面 1 つ分と、最後の場面をとどめる分を足す */
+  height: calc((var(--beats) + 1.3) * 100vh);
 }
 .pin {
   position: sticky;
