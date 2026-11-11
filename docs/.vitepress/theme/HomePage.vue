@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // トップページ。製品のサイトのように、見出し・画面・特長・図の種類・始め方を縦に並べる。
 // 書いてある版は index.md の frontmatter（version）から読む（版を出すたびに index.md だけを直す）。
-import { computed } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useData, withBase } from "vitepress";
 import ThemeImage from "./ThemeImage.vue";
 import SponsorCard from "./SponsorCard.vue";
+import StoryStage from "./StoryStage.vue";
 
 const { frontmatter } = useData();
 /** このマニュアルが合わせている安定版の版（例：0.1.0-rc.3）。 */
@@ -14,36 +15,81 @@ const APP = "https://modelith.github.io/modelith/";
 const PREVIEW = "https://modelith.github.io/modelith/preview/";
 const REPO = "https://github.com/modelith/modelith";
 
-/** 大きな画像と並べて見せる、主な特長。 */
-const pillars = [
+/** スクロールで進む章。step は StoryStage の場面（1 から）。 */
+const chapters = [
   {
+    step: 1,
     kicker: "図だけで描く",
     title: "線を引くだけで、モデルになる",
-    text: "パレットで要求や部品を置き、線を引くだけでモデルを作れます。SysML v2 の書き方を知らなくても始められます。",
+    text: "パレットで要求や部品を置き、線を引くだけでモデルを作れます。図で足した関係は、そのままテキストに書き足されます。SysML v2 の書き方を知らなくても始められます。",
     link: "/guide/getting-started",
     linkText: "はじめての図",
-    image: "/images/tutorial-5-satisfy.jpg",
-    alt: "部品を要求につなぐと、テキストに satisfy の行が書き足される画面",
   },
   {
-    kicker: "テキストで書く・行き来する",
-    title: "書けば描かれ、描けば書かれる",
-    text: "書き方を知っていれば、テキストを打つだけで図が描かれます。図で足せばテキストが書き換わり、どの方法で作っても同じモデル・同じファイルになります。モデルはただのテキストなので、Git で差分を追えます。",
+    step: 2,
+    kicker: "テキストで書く",
+    title: "書けば、その場で描かれる",
+    text: "書き方を知っていれば、テキストを打つだけで図が描かれます。どの方法で作っても、同じモデル・同じファイルになります。モデルはただのテキストなので、Git で差分を追えます。",
     link: "/guide/text-and-diagram",
     linkText: "テキストで書く・行き来する",
-    image: "/images/text-1-written.jpg",
-    alt: "テキストに書いた要求と部品が、図として描かれた画面",
   },
   {
+    step: 3,
     kicker: "要求の抜けに気づける",
     title: "抜けを見つけて、その場で直す",
-    text: "利用者要求から方式設計・検証までのつながりをたどり、導出・充足・検証の抜けを知らせます。何が足りないかと直し方を示し、図のまま関係を追加できます。",
+    text: "要求から設計・検証までのつながりをたどり、導出・充足・検証の抜けを知らせます。何が足りないかと直し方を示し、図のまま関係を追加できます。",
     link: "/diagrams/traceability",
     linkText: "トレーサビリティ",
-    image: "/images/trace-gap-guide.jpg",
-    alt: "トレースの抜けがある要求を選び、直し方の案内が出ている画面",
+  },
+  {
+    step: 4,
+    kicker: "目的に合わせた図",
+    title: "同じモデルを、見たい切り口で",
+    text: "ブロック定義図・内部ブロック図・シーケンス図・アクティビティ図・状態遷移図など、同じモデルを目的に合わせた図で表示できます。",
+    link: "/diagrams/",
+    linkText: "図の種類と開き方",
   },
 ];
+
+/** いま画面の中央にある章の場面（右の画面の模型に渡す）。 */
+const step = ref(0);
+/** 章の要素（スクロールの位置を見張る）。 */
+const chapterEls = ref<HTMLElement[]>([]);
+/** トップページの外枠（スクロールで現れる要素を探す）。 */
+const root = ref<HTMLElement | null>(null);
+let observers: IntersectionObserver[] = [];
+
+onMounted(() => {
+  // 画面の中央の帯に入った章を、いまの場面にする
+  const chapterIo = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) if (e.isIntersecting) step.value = Number((e.target as HTMLElement).dataset.step);
+    },
+    { rootMargin: "-45% 0px -45% 0px" },
+  );
+  chapterEls.value.forEach((el) => chapterIo.observe(el));
+
+  // まだ画面の下にある要素だけを隠し、画面に入ったら出す（はじめから見えている要素と、JavaScript が無いときは隠さない）
+  const els = [...(root.value?.querySelectorAll<HTMLElement>(".reveal") ?? [])];
+  const revealIo = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        e.target.classList.add("in");
+        revealIo.unobserve(e.target);
+      }
+    },
+    { rootMargin: "0px 0px -10% 0px" },
+  );
+  for (const el of els) {
+    if (el.getBoundingClientRect().top < innerHeight) continue;
+    el.classList.add("pre");
+    revealIo.observe(el);
+  }
+  observers = [chapterIo, revealIo];
+});
+
+onBeforeUnmount(() => observers.forEach((o) => o.disconnect()));
 
 /** 図の種類の一覧。 */
 const diagrams = [
@@ -96,7 +142,7 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
 </script>
 
 <template>
-  <div class="home">
+  <div ref="root" class="home">
     <section class="hero">
       <p class="eyebrow">
         <span class="dot" aria-hidden="true"></span>
@@ -116,17 +162,19 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
       <ThemeImage light="/images/overview.jpg" dark="/images/overview-dark.jpg" alt="Modelith の画面。左にモデルのツリー、中央にロボット掃除機のブロック定義図、右に SysML v2 のテキスト" />
     </div>
 
-    <section class="pillars">
-      <div v-for="(p, i) in pillars" :key="p.title" class="pillar" :class="{ flip: i % 2 === 1 }">
-        <div class="copy">
-          <p class="kicker">{{ p.kicker }}</p>
-          <h2>{{ p.title }}</h2>
-          <p>{{ p.text }}</p>
-          <a class="more" :href="href(p.link)">{{ p.linkText }} <span aria-hidden="true">→</span></a>
+    <section class="story">
+      <div class="chapters">
+        <div v-for="c in chapters" :key="c.step" ref="chapterEls" class="chapter" :class="{ on: step === c.step }" :data-step="c.step">
+          <p class="kicker">{{ c.kicker }}</p>
+          <h2>{{ c.title }}</h2>
+          <p>{{ c.text }}</p>
+          <a class="more" :href="href(c.link)">{{ c.linkText }} <span aria-hidden="true">→</span></a>
+          <!-- 狭い画面では、章ごとに終わった場面を並べる -->
+          <StoryStage class="inline-stage" :step="c.step" />
         </div>
-        <div class="media window">
-          <img :src="withBase(p.image)" :alt="p.alt" loading="lazy" />
-        </div>
+      </div>
+      <div class="sticky">
+        <StoryStage :step="step" />
       </div>
     </section>
 
@@ -136,7 +184,7 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
         <p>同じモデルを、見たい切り口で表示できます。</p>
       </div>
       <div class="grid">
-        <a v-for="d in diagrams" :key="d.name" class="card" :href="href(d.link)">
+        <a v-for="(d, i) in diagrams" :key="d.name" class="card reveal" :style="{ '--d': i % 3 }" :href="href(d.link)">
           <div class="thumb"><img :src="withBase(d.image)" :alt="d.name + 'の画面'" loading="lazy" /></div>
           <div class="body">
             <h3>{{ d.name }}</h3>
@@ -148,7 +196,7 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
     </section>
 
     <section class="extras">
-      <a v-for="e in extras" :key="e.title" class="extra" :href="href(e.link)">
+      <a v-for="(e, i) in extras" :key="e.title" class="extra reveal" :style="{ '--d': i }" :href="href(e.link)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="e.icon" /></svg>
         <h3>{{ e.title }}</h3>
         <p>{{ e.text }}</p>
@@ -324,20 +372,51 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
   background: var(--vp-c-divider);
 }
 
-/* 主な特長 */
-.pillars {
-  padding-top: 120px;
+/* 主な特長：左の章をスクロールで進めると、右に貼り付いた画面の模型が章の場面に変わる */
+.story {
   display: grid;
-  gap: 112px;
-}
-.pillar {
-  display: grid;
-  grid-template-columns: 5fr 7fr;
+  grid-template-columns: 4fr 8fr;
   gap: 56px;
-  align-items: center;
+  padding-top: 80px;
 }
-.pillar.flip .copy {
-  order: 2;
+.chapter {
+  min-height: 72vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  opacity: 0.35;
+  transition: opacity 0.4s;
+}
+.chapter.on {
+  opacity: 1;
+}
+.chapter:first-child {
+  min-height: 60vh;
+}
+.chapter > p:not(.kicker) {
+  margin: 16px 0 0;
+  line-height: 1.9;
+  color: var(--vp-c-text-2);
+}
+.sticky {
+  position: sticky;
+  top: calc(var(--vp-nav-height) + max(24px, (100vh - var(--vp-nav-height) - 480px) / 2));
+  align-self: start;
+}
+.inline-stage {
+  display: none;
+}
+
+/* スクロールで現れる（まだ画面の下にある要素だけに pre が付く） */
+.reveal.pre {
+  opacity: 0;
+  transform: translateY(24px);
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out, border-color 0.2s;
+  transition-delay: calc(var(--d, 0) * 90ms), calc(var(--d, 0) * 90ms), 0s;
 }
 .kicker {
   margin: 0 0 8px;
@@ -355,11 +434,6 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
   color: var(--vp-c-text-1);
   border: 0;
   padding: 0;
-}
-.copy p {
-  margin: 16px 0 0;
-  line-height: 1.9;
-  color: var(--vp-c-text-2);
 }
 .more {
   display: inline-block;
@@ -525,18 +599,40 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
 }
 
 @media (max-width: 960px) {
-  .pillar {
+  .story {
     grid-template-columns: 1fr;
-    gap: 28px;
   }
-  .pillar.flip .copy {
-    order: 0;
+  .sticky {
+    display: none;
+  }
+  .chapters {
+    display: grid;
+    gap: 72px;
+  }
+  .chapter,
+  .chapter:first-child {
+    min-height: 0;
+    opacity: 1;
+  }
+  .inline-stage {
+    display: block;
+    margin-top: 24px;
   }
   .grid {
     grid-template-columns: repeat(2, 1fr);
   }
   .extras {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal.pre {
+    opacity: 1;
+    transform: none;
+  }
+  .chapter {
+    transition: none;
   }
 }
 
@@ -557,9 +653,8 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
   .lead {
     font-size: 16px;
   }
-  .pillars {
-    padding-top: 80px;
-    gap: 72px;
+  .story {
+    padding-top: 64px;
   }
   .diagrams,
   .extras {
