@@ -74,5 +74,5 @@ Modelith はオープンソースです。ソースコードは [GitHub](https:/
 ### リリース候補版
 
 正式版の候補（rc）は、[https://modelith.github.io/modelith/rc/](https://modelith.github.io/modelith/rc/) で試せます。
-試していただく候補が無いとき（今は、0.2.0 の候補を出すまでの間）は、安定版への案内だけが出ます。
+いまは、0.2.0 の候補（0.2.0-rc.1）が出ています。試していただく候補が無いときは、安定版への案内だけが出ます。
 - 開発中の版のため、安定版より不具合が多いことがあります。気づいたことは [GitHub Issues](https://github.com/modelith/modelith/issues/new/choose) にお寄せください。
