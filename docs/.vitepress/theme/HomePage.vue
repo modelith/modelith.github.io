@@ -8,7 +8,7 @@ import SponsorCard from "./SponsorCard.vue";
 import StoryStage from "./StoryStage.vue";
 
 const { frontmatter } = useData();
-/** このマニュアルが合わせている安定版の版（例：0.1.0-rc.3）。 */
+/** このマニュアルが合わせている安定版の版（例：0.1.0）。 */
 const version = computed(() => String(frontmatter.value.version ?? ""));
 
 const APP = "https://modelith.github.io/modelith/";
@@ -288,7 +288,7 @@ const href = (link: string): string => (link.startsWith("http") ? link : withBas
 
     <section class="cta">
       <h2>ブラウザを開くだけで、始められます</h2>
-      <p>いまは <strong>0.1.0 の正式版の候補（rc）</strong>です。0.1.0 までは不具合の修正だけを行います。操作方法や保存形式は予告なく変わることがあるので、大切なモデルはこまめに手元のファイルとして保存してください。</p>
+      <p>いまの正式版は <strong>0.1.0</strong> です。操作方法や保存形式は予告なく変わることがあるので、大切なモデルはこまめに手元のファイルとして保存してください。</p>
       <div class="actions">
         <a class="btn primary" :href="APP" target="_blank" rel="noreferrer">ブラウザで試す</a>
         <a class="btn" :href="PREVIEW" target="_blank" rel="noreferrer">プレビュー版を試す</a>
